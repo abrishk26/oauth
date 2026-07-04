@@ -1,4 +1,4 @@
-use axum::{Router, response::Html, routing::get, extract::State};
+use axum::{Router, response::Html, routing::{get}, extract::{State, Query}};
 use url::Url;
 use dotenvy::dotenv;
 // use rand::distr::{Alphanumeric, SampleString};
@@ -25,6 +25,12 @@ struct AppState {
     redirect_uri: Arc<String>,
 }
 
+use serde::Deserialize;
+// Define your target structure
+#[derive(Deserialize)]
+struct Code {
+    code: String,      // Option makes it optional
+}
 #[tokio::main]
 async fn main() {
     // Load environment variables from the .env file
@@ -53,13 +59,20 @@ async fn main() {
         .route(
             "/google/login",
             get(handle_google_login),
-        ).with_state(shared_state)
+        )
+        .route("/auth/callback/google", get(handle_google_callback))
+        .with_state(shared_state)
     ;
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();
     // println!("{:?}", response.text().await.unwrap());
+}
+
+async fn handle_google_callback(Query(code): Query<Code>) -> impl axum::response::IntoResponse {
+   println!("CODE: {}", code.code); 
+   "Got the code"
 }
 
 async fn handle_google_login(
