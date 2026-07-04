@@ -816,6 +816,7 @@ dependencies = [
  "rand 0.10.1",
  "reqwest",
  "serde",
+ "serde_json",
  "tokio",
  "url",
 ]
@@ -1059,6 +1060,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",
