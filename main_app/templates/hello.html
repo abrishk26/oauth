@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <a href="google/login">Login with Google</a>
+    <script>
+    // 1. Select the target node element using its class name (.my-class)
+    const btn = document.querySelector('.login-btn');
+    
+    // 2. Attach an event listener (e.g., 'click') to the selected element
+    btn.addEventListener('click', async () => {
+      const url = '/google/login';
+    
+      try {
+        // 3. Make the GET request using fetch
+        const response = await fetch(url);
+    
+        // Always check if the response status is okay (200-299)
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+    
+        // Parse the JSON data from the response body
+        const data = await response.json();
+        console.log('Success:', data);
+        
+      } catch (error) {
+        // Handle network errors or failed parsing
+        console.error('Fetch error:', error);
+      }
+    });
+    </script>
+</body>
+</html>
