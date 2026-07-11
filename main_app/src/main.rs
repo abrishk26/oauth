@@ -10,7 +10,10 @@ use axum::{
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use dotenvy::dotenv;
 use entity::{accounts, users};
-use sea_orm::{ActiveModelTrait, Database, DatabaseConnection, TransactionTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, Database, DatabaseConnection, EntityTrait, ExprTrait,
+    QueryFilter, TransactionTrait,
+};
 use serde::{Deserialize, Serialize};
 use std::{env, sync::Arc};
 use url::Url;
@@ -150,36 +153,52 @@ async fn handle_google_callback(
 
     let user_info: UserProfile = serde_json::from_str(decoded_str.as_str()).unwrap();
 
-    let txn = state.db_pool.begin().await.unwrap();
+    match entity::prelude::Accounts::find()
+        .filter(
+            Condition::all().add(
+                accounts::Column::ProviderId
+                    .eq(user_info.sub.clone())
+                    .and(accounts::Column::Provider.eq("google".to_string())),
+            ),
+        )
+        .one(&state.db_pool)
+        .await
+        .unwrap()
+    {
+        Some(_) => "Login successfullly",
+        None => {
+            let txn = state.db_pool.begin().await.unwrap();
 
-    let user = users::ActiveModel {
-        id: sea_orm::ActiveValue::NotSet,
-        name: sea_orm::ActiveValue::Set(user_info.name),
-        email: sea_orm::ActiveValue::Set(user_info.email),
-        email_verified: sea_orm::ActiveValue::Set(user_info.email_verified),
-        created_at: sea_orm::ActiveValue::NotSet,
+            let user = users::ActiveModel {
+                id: sea_orm::ActiveValue::NotSet,
+                name: sea_orm::ActiveValue::Set(user_info.name),
+                email: sea_orm::ActiveValue::Set(user_info.email),
+                email_verified: sea_orm::ActiveValue::Set(user_info.email_verified),
+                created_at: sea_orm::ActiveValue::NotSet,
+            }
+            .insert(&state.db_pool)
+            .await
+            .unwrap();
+
+            let account: accounts::Model = accounts::ActiveModel {
+                id: sea_orm::ActiveValue::NotSet,
+                user_id: sea_orm::ActiveValue::Set(user.id),
+                provider: sea_orm::ActiveValue::Set("google".to_string()),
+                password: sea_orm::ActiveValue::Set(None),
+                provider_id: sea_orm::ActiveValue::Set(Some(user_info.sub)),
+                created_at: sea_orm::ActiveValue::NotSet,
+            }
+            .insert(&state.db_pool)
+            .await
+            .unwrap();
+
+            txn.commit().await.unwrap();
+
+            println!("User: {:?}\nAccount: {:?}", user, account);
+
+            "Registration completed successfully"
+        }
     }
-    .insert(&state.db_pool)
-    .await
-    .unwrap();
-
-    let account: accounts::Model = accounts::ActiveModel {
-        id: sea_orm::ActiveValue::NotSet,
-        user_id: sea_orm::ActiveValue::Set(user.id),
-        provider: sea_orm::ActiveValue::Set("google".to_string()),
-        password: sea_orm::ActiveValue::Set(None),
-        provider_id: sea_orm::ActiveValue::Set(Some(user_info.sub)),
-        created_at: sea_orm::ActiveValue::NotSet,
-    }
-    .insert(&state.db_pool)
-    .await
-    .unwrap();
-
-    txn.commit().await.unwrap();
-
-    println!("User: {:?}\nAccount: {:?}", user, account);
-
-    "Registration completed successfully"
 }
 
 async fn handle_google_login(State(state): State<AppState>) -> impl axum::response::IntoResponse {
